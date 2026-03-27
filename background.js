@@ -1,3 +1,5 @@
+chrome.storage.local.set({ isEnabled: false });
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   
   if (request.action === 'translateText') {
@@ -71,5 +73,27 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     .catch(() => sendResponse({ success: false }));
 
     return true; // Keep port open for async
+  }
+});
+
+// Function to create a small "dot" status indicator
+function updateBadge(isEnabled) {
+  // Use a single space for the smallest possible badge footprint (a dot)
+  const text = isEnabled ? ' ' : ' '; 
+  const color = isEnabled ? '#28a745' : '#ff0019'; // Pure Green / Pure Red
+
+  chrome.action.setBadgeText({ text: text });
+  chrome.action.setBadgeBackgroundColor({ color: color });
+}
+
+// Ensure the badge initializes correctly
+chrome.storage.local.get(['isEnabled'], (data) => {
+  updateBadge(!!data.isEnabled);
+});
+
+// Listen for live toggles
+chrome.storage.onChanged.addListener((changes) => {
+  if (changes.isEnabled) {
+    updateBadge(changes.isEnabled.newValue);
   }
 });
