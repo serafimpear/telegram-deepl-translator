@@ -19,6 +19,10 @@
     .btn-red:hover { background: #c82333; }
     
     #quotaDisplay { font-size: 11px; color: #555; text-align: center; margin-bottom: 10px; padding: 4px; background: #f4f4f4; border-radius: 4px; }
+
+    .hint { font-size: 10px; color: #777; margin-top: 4px; display: block; }
+    .hint a { color: #2481cc; text-decoration: none; }
+    .hint a:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
@@ -27,6 +31,7 @@
   <div class="form-group">
     <label for="apiKey">DeepL API Key:</label>
     <input type="text" id="apiKey" placeholder="xxxx-xxxx-xxxx:fx">
+    <span class="hint">Get your API key <a href="https://www.deepl.com/pro-api" target="_blank" rel="noopener">here</a>.</span>
   </div>
 
   <div class="row">
@@ -51,6 +56,18 @@
         <option value="UK">Ukrainian</option>
       </select>
     </div>
+  </div>
+
+  <div class="form-group">
+    <label for="outgoingTargetLang">Outgoing Target:</label>
+    <select id="outgoingTargetLang">
+      <option value="EN">English</option>
+      <option value="RU">Russian</option>
+      <option value="DE">German</option>
+      <option value="IT">Italian</option>
+      <option value="UK">Ukrainian</option>
+    </select>
+    <span class="hint">Press <strong>Alt + T</strong> in the text box to translate, and <strong>Enter</strong> to send.</span>
   </div>
 
   <div class="form-group">

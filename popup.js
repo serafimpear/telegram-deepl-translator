@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const toggleTranslationBtn = document.getElementById('toggleTranslationBtn');
   const statusTxt = document.getElementById('status');
   const quotaDisplay = document.getElementById('quotaDisplay');
+  const outgoingTargetLangSelect = document.getElementById('outgoingTargetLang');
 
   let isEnabled = false;
 
@@ -36,10 +37,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Load saved settings
-  chrome.storage.local.get(['deeplKey', 'sourceLang', 'targetLang', 'formality', 'isEnabled'], (data) => {
+  chrome.storage.local.get(['deeplKey', 'sourceLang', 'targetLang', 'outgoingTargetLang', 'formality', 'isEnabled'], (data) => {
     if (data.deeplKey) apiKeyInput.value = data.deeplKey;
     if (data.sourceLang) sourceLangSelect.value = data.sourceLang;
     if (data.targetLang) targetLangSelect.value = data.targetLang;
+    if (data.outgoingTargetLang) outgoingTargetLangSelect.value = data.outgoingTargetLang;
     if (data.formality) formalitySelect.value = data.formality;
     updateToggleButtonState(!!data.isEnabled);
     
@@ -53,6 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
       deeplKey: key,
       sourceLang: sourceLangSelect.value,
       targetLang: targetLangSelect.value,
+      outgoingTargetLang: outgoingTargetLangSelect.value,
       formality: formalitySelect.value
     }, () => {
       statusTxt.style.display = 'block';

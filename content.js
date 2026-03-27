@@ -3,6 +3,7 @@ let settings = {
   deeplKey: '',
   sourceLang: '',
   targetLang: 'EN',
+  outgoingTargetLang: 'EN',
   formality: 'default'
 };
 
@@ -24,6 +25,7 @@ chrome.storage.onChanged.addListener((changes) => {
   if (changes.sourceLang) { settings.sourceLang = changes.sourceLang.newValue; needsRetranslation = true; }
   if (changes.targetLang) { settings.targetLang = changes.targetLang.newValue; needsRetranslation = true; }
   if (changes.formality) { settings.formality = changes.formality.newValue; needsRetranslation = true; }
+  if (changes.outgoingTargetLang) { settings.outgoingTargetLang = changes.outgoingTargetLang.newValue; }
 
   if (needsRetranslation) {
     clearAllTranslations();
@@ -268,4 +270,66 @@ function appendTranslation(container, translatedHTML) {
     container.appendChild(hr);
     container.appendChild(translationDiv);
   }
+}
+
+// --- Outgoing Translation Logic (Alt + T) ---
+
+document.addEventListener('keydown', (e) => {
+  // e.code === 'KeyT' catches the physical QWERTY 'T' key across all language layouts
+  // e.key.toLowerCase() === 't' catches the logical 't' for alternative layouts like Dvorak
+  if (e.altKey && (e.code === 'KeyT' || e.key.toLowerCase() === 't')) {
+    e.preventDefault(); 
+    handleOutgoingTranslation();
+  }
+});
+
+function handleOutgoingTranslation() {
+  if (!settings.isEnabled || !settings.deeplKey) return;
+
+  const inputBox = document.getElementById('editable-message-text');
+  if (!inputBox) return;
+
+  // Telegram uses nested spans and nodes for emojis, innerText gets the clean string
+  const textToTranslate = inputBox.innerText.trim();
+  if (!textToTranslate) return;
+
+  // Visual feedback while translating
+  const originalOpacity = inputBox.style.opacity;
+  inputBox.style.opacity = '0.5';
+
+  chrome.runtime.sendMessage({
+    action: 'translateText',
+    text: textToTranslate,
+    apiKey: settings.deeplKey,
+    sourceLang: '', // Auto-detect what the user typed
+    targetLang: settings.outgoingTargetLang,
+    formality: settings.formality,
+    context: '' // No context required for the input box
+  }, (response) => {
+    inputBox.style.opacity = originalOpacity;
+
+    if (chrome.runtime.lastError || !response || !response.success) {
+      console.error("Outgoing translation failed:", response ? response.error : chrome.runtime.lastError);
+      return;
+    }
+
+    // DeepL background script sends HTML back due to tag_handling='html'
+    // We parse it into plain text to safely insert into the contenteditable box
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = response.translatedText;
+    const cleanText = tempDiv.innerText;
+
+    // Focus the input box and select all current text
+    inputBox.focus();
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(inputBox);
+    selection.removeAllRanges();
+    selection.addRange(range);
+
+    // Using execCommand is officially deprecated in standard web specs, 
+    // but it remains the only reliable way to trigger React's synthetic input 
+    // events in contenteditable elements without highly brittle reverse-engineering.
+    document.execCommand('insertText', false, cleanText);
+  });
 }
