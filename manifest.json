@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Telegram DeepL Translator",
+  "version": "1.0",
+  "description": "Auto-translates Telegram Web messages using DeepL.",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "*://web.telegram.org/*",
+    "https://*.deepl.com/*"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://web.telegram.org/*"],
+      "js": ["content.js"]
+    }
+  ]
+}

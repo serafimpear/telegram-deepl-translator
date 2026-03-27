@@ -1,0 +1,271 @@
+let settings = {
+  isEnabled: false,
+  deeplKey: '',
+  sourceLang: '',
+  targetLang: 'EN',
+  formality: 'default'
+};
+
+let observer = null;
+let translationQueue = [];
+let isProcessingQueue = false;
+const sessionCache = new Map();
+
+chrome.storage.local.get(['deeplKey', 'sourceLang', 'targetLang', 'formality', 'isEnabled'], (data) => {
+  settings = { ...settings, ...data };
+  handleStateChange();
+});
+
+chrome.storage.onChanged.addListener((changes) => {
+  let needsRetranslation = false;
+
+  if (changes.isEnabled) settings.isEnabled = changes.isEnabled.newValue;
+  if (changes.deeplKey) { settings.deeplKey = changes.deeplKey.newValue; needsRetranslation = true; }
+  if (changes.sourceLang) { settings.sourceLang = changes.sourceLang.newValue; needsRetranslation = true; }
+  if (changes.targetLang) { settings.targetLang = changes.targetLang.newValue; needsRetranslation = true; }
+  if (changes.formality) { settings.formality = changes.formality.newValue; needsRetranslation = true; }
+
+  if (needsRetranslation) {
+    clearAllTranslations();
+  }
+
+  handleStateChange();
+});
+
+function handleStateChange() {
+  if (settings.isEnabled && settings.deeplKey) {
+    startObserver();
+    translateVisibleMessages();
+  } else {
+    stopObserver();
+    clearAllTranslations(); 
+  }
+}
+
+function clearAllTranslations() {
+  translationQueue = []; 
+  isProcessingQueue = false;
+  sessionCache.clear(); 
+  
+  document.querySelectorAll('.deepl-translation, .deepl-hr-flag').forEach(el => el.remove());
+  document.querySelectorAll('.deepl-translated-flag').forEach(el => {
+      el.classList.remove('deepl-translated-flag');
+      delete el.dataset.deeplOriginalHtml; // Clear our saved text state
+  });
+}
+
+function translateVisibleMessages() {
+  const messages = document.querySelectorAll('.Message:not(.own):not(.deepl-translated-flag)');
+  messages.forEach(processMessage);
+}
+
+function startObserver() {
+  if (observer) return;
+  
+  // We add characterData to watch for raw text changes
+  observer = new MutationObserver((mutations) => {
+    if (!settings.isEnabled || !settings.deeplKey) return;
+    
+    mutations.forEach((mutation) => {
+      // 1. Handle brand new messages loading in
+      mutation.addedNodes.forEach((node) => {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          if (node.classList && node.classList.contains('Message') && !node.classList.contains('own')) {
+            processMessage(node);
+          } else if (node.querySelectorAll) {
+            const innerMessages = node.querySelectorAll('.Message:not(.own):not(.deepl-translated-flag)');
+            innerMessages.forEach(processMessage);
+          }
+        }
+      });
+
+      // 2. Handle edited messages
+      if (mutation.type === 'characterData' || mutation.type === 'childList') {
+        let targetEl = mutation.target.nodeType === Node.ELEMENT_NODE ? mutation.target : mutation.target.parentElement;
+        if (!targetEl) return;
+
+        let messageNode = targetEl.closest('.Message:not(.own)');
+        
+        // If it's a message we already translated...
+        if (messageNode && messageNode.classList.contains('deepl-translated-flag')) {
+          const textContentContainer = messageNode.querySelector('.text-content');
+          if (textContentContainer) {
+             
+             // Clone it so we can safely strip out our injected elements to check the pure text
+             const clone = textContentContainer.cloneNode(true);
+             
+             const metaTag = clone.querySelector('.MessageMeta');
+             if (metaTag) metaTag.remove();
+             const translation = clone.querySelector('.deepl-translation');
+             if (translation) translation.remove();
+             const hr = clone.querySelector('.deepl-hr-flag');
+             if (hr) hr.remove();
+
+             const currentHTML = clone.innerHTML.trim();
+
+             // If the current text doesn't match what we originally translated, it was edited!
+             if (currentHTML && currentHTML !== messageNode.dataset.deeplOriginalHtml) {
+                // Wipe the old translation from the screen
+                if (textContentContainer.querySelector('.deepl-translation')) textContentContainer.querySelector('.deepl-translation').remove();
+                if (textContentContainer.querySelector('.deepl-hr-flag')) textContentContainer.querySelector('.deepl-hr-flag').remove();
+                
+                // Unflag it and send it back to the queue
+                messageNode.classList.remove('deepl-translated-flag');
+                processMessage(messageNode);
+             }
+          }
+        }
+      }
+    });
+  });
+  
+  // Notice we now observe characterData too
+  observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+}
+
+function stopObserver() {
+  if (observer) {
+    observer.disconnect();
+    observer = null;
+  }
+}
+
+function getContextString(currentMessageNode) {
+  let contextText = "";
+  let previousNode = currentMessageNode.previousElementSibling;
+  let count = 0;
+
+  while (previousNode && count < 2) {
+    if (previousNode.classList && previousNode.classList.contains('Message')) {
+      const textContainer = previousNode.querySelector('.text-content');
+      if (textContainer) {
+        let rawText = textContainer.innerText.replace(/edited \d{2}:\d{2}|\d{2}:\d{2}/g, '').trim(); 
+        if (rawText) {
+          contextText = rawText + "\n" + contextText;
+          count++;
+        }
+      }
+    }
+    previousNode = previousNode.previousElementSibling;
+  }
+  return contextText.trim();
+}
+
+function processMessage(messageNode) {
+  if (messageNode.classList.contains('deepl-translated-flag')) return;
+  
+  const textContentContainer = messageNode.querySelector('.text-content');
+  if (!textContentContainer) return;
+
+  messageNode.classList.add('deepl-translated-flag');
+
+  const clone = textContentContainer.cloneNode(true);
+  const metaTag = clone.querySelector('.MessageMeta');
+  if (metaTag) metaTag.remove();
+
+  const originalHTML = clone.innerHTML.trim();
+  if (!originalHTML) {
+      messageNode.classList.remove('deepl-translated-flag');
+      return;
+  }
+
+  // Save the state of this message so the observer knows if it gets edited later
+  messageNode.dataset.deeplOriginalHtml = originalHTML;
+
+  if (sessionCache.has(originalHTML)) {
+      appendTranslation(textContentContainer, sessionCache.get(originalHTML));
+      return;
+  }
+
+  const contextStr = getContextString(messageNode);
+
+  translationQueue.push({
+    node: messageNode,
+    container: textContentContainer,
+    text: originalHTML,
+    context: contextStr
+  });
+
+  processQueue();
+}
+
+function processQueue() {
+  if (isProcessingQueue || translationQueue.length === 0) return;
+  isProcessingQueue = true;
+
+  const item = translationQueue.shift();
+
+  if (!settings.isEnabled) {
+      isProcessingQueue = false;
+      return;
+  }
+
+  try {
+    chrome.runtime.sendMessage({
+      action: 'translateText',
+      text: item.text,
+      apiKey: settings.deeplKey,
+      sourceLang: settings.sourceLang,
+      targetLang: settings.targetLang,
+      formality: settings.formality,
+      context: item.context
+    }, (response) => {
+      
+      let delay = 100;
+
+      try {
+          if (chrome.runtime.lastError) {
+            console.error("Extension Messaging Error:", chrome.runtime.lastError.message);
+            item.node.classList.remove('deepl-translated-flag');
+          } else if (response && response.success) {
+            sessionCache.set(item.text, response.translatedText);
+            appendTranslation(item.container, response.translatedText);
+          } else {
+            console.error("DeepL Translation Error:", response ? response.error : "Unknown error");
+            item.node.classList.remove('deepl-translated-flag');
+            
+            if (response && response.error && response.error.includes("429")) {
+                console.warn("Rate limit hit. Pausing queue for 2 seconds...");
+                delay = 2000;
+            }
+          }
+      } catch (err) {
+          console.error("Error formatting/appending translation:", err);
+          item.node.classList.remove('deepl-translated-flag');
+      } finally {
+          setTimeout(() => {
+            isProcessingQueue = false;
+            processQueue();
+          }, delay);
+      }
+    });
+  } catch (err) {
+    console.error("Message sending failed.", err);
+    item.node.classList.remove('deepl-translated-flag');
+    isProcessingQueue = false;
+    processQueue();
+  }
+}
+
+function appendTranslation(container, translatedHTML) {
+  if (container.querySelector('.deepl-translation')) return;
+
+  const metaTag = container.querySelector('.MessageMeta');
+  
+  const hr = document.createElement('hr');
+  hr.className = "deepl-hr-flag";
+  hr.style.cssText = "border: 0; border-top: 1px solid rgba(128, 128, 128, 0.3); margin: 6px 0;";
+  
+  const translationDiv = document.createElement('div');
+  translationDiv.className = "deepl-translation";
+  translationDiv.style.cssText = "color: #777; font-size: 0.95em; margin-bottom: 4px; white-space: pre-wrap;";
+  translationDiv.innerHTML = translatedHTML;
+
+  if (metaTag && metaTag.parentNode === container) {
+    container.insertBefore(hr, metaTag);
+    container.insertBefore(translationDiv, metaTag);
+  } else {
+    container.appendChild(hr);
+    container.appendChild(translationDiv);
+  }
+}

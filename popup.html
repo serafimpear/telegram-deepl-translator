@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: sans-serif; width: 280px; padding: 10px; margin: 0; }
+    .form-group { margin-bottom: 12px; }
+    .row { display: flex; gap: 10px; margin-bottom: 12px; }
+    .col { flex: 1; }
+    label { display: block; font-size: 11px; margin-bottom: 4px; font-weight: bold; color: #333; }
+    input[type="text"], select { width: 100%; padding: 6px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px;}
+    button { width: 100%; padding: 8px; color: white; border: none; cursor: pointer; border-radius: 4px; margin-bottom: 8px; font-weight: bold; font-size: 13px;}
+    
+    #saveBtn { background: #2481cc; }
+    #saveBtn:hover { background: #1d6fa5; }
+    .btn-green { background: #28a745; }
+    .btn-green:hover { background: #218838; }
+    .btn-red { background: #dc3545; }
+    .btn-red:hover { background: #c82333; }
+    
+    #quotaDisplay { font-size: 11px; color: #555; text-align: center; margin-bottom: 10px; padding: 4px; background: #f4f4f4; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <div id="quotaDisplay">Checking quota...</div>
+
+  <div class="form-group">
+    <label for="apiKey">DeepL API Key:</label>
+    <input type="text" id="apiKey" placeholder="xxxx-xxxx-xxxx:fx">
+  </div>
+
+  <div class="row">
+    <div class="col">
+      <label for="sourceLang">Source:</label>
+      <select id="sourceLang">
+        <option value="">Auto Detect</option>
+        <option value="RU">Russian</option>
+        <option value="DE">German</option>
+        <option value="IT">Italian</option>
+        <option value="EN">English</option>
+        <option value="UK">Ukrainian</option>
+      </select>
+    </div>
+    <div class="col">
+      <label for="targetLang">Target:</label>
+      <select id="targetLang">
+        <option value="EN">English</option>
+        <option value="RU">Russian</option>
+        <option value="DE">German</option>
+        <option value="IT">Italian</option>
+        <option value="UK">Ukrainian</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label for="formality">Formality:</label>
+    <select id="formality">
+      <option value="default">Default</option>
+      <option value="prefer_more">Prefer More Formal</option>
+      <option value="prefer_less">Prefer Less Formal</option>
+    </select>
+  </div>
+
+  <button id="saveBtn">Save Settings</button>
+  <button id="toggleTranslationBtn" class="btn-green">Enable Translation</button>
+  
+  <div id="status" style="color: green; font-size: 12px; display: none; text-align: center;">Settings applied live!</div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
