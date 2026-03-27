@@ -4,8 +4,7 @@ let settings = {
   sourceLang: '',
   targetLang: 'EN',
   outgoingTargetLang: 'EN',
-  formality: 'default',
-  translateOwn: false
+  formality: 'default'
 };
 
 let observer = null;
@@ -13,7 +12,7 @@ let translationQueue = [];
 let isProcessingQueue = false;
 const sessionCache = new Map();
 
-chrome.storage.local.get(['deeplKey', 'sourceLang', 'targetLang', 'formality', 'isEnabled', 'translateOwn'], (data) => {
+chrome.storage.local.get(['deeplKey', 'sourceLang', 'targetLang', 'formality', 'isEnabled'], (data) => {
   settings = { ...settings, ...data };
   handleStateChange();
 });
@@ -27,7 +26,6 @@ chrome.storage.onChanged.addListener((changes) => {
   if (changes.targetLang) { settings.targetLang = changes.targetLang.newValue; needsRetranslation = true; }
   if (changes.formality) { settings.formality = changes.formality.newValue; needsRetranslation = true; }
   if (changes.outgoingTargetLang) { settings.outgoingTargetLang = changes.outgoingTargetLang.newValue; }
-  if (changes.translateOwn) { settings.translateOwn = changes.translateOwn.newValue; needsRetranslation = true; }
 
   if (needsRetranslation) {
     clearAllTranslations();
@@ -54,25 +52,19 @@ function clearAllTranslations() {
   document.querySelectorAll('.deepl-translation, .deepl-hr-flag').forEach(el => el.remove());
   document.querySelectorAll('.deepl-translated-flag').forEach(el => {
       el.classList.remove('deepl-translated-flag');
-      delete el.dataset.deeplOriginalHtml;
+      delete el.dataset.deeplOriginalHtml; // Clear our saved text state
   });
 }
 
-// Returns a CSS selector for messages based on the translateOwn setting.
-function getMessageSelector(excludeAlreadyTranslated = true) {
-  const ownFilter = settings.translateOwn ? '' : ':not(.own)';
-  const translatedFilter = excludeAlreadyTranslated ? ':not(.deepl-translated-flag)' : '';
-  return `.Message${ownFilter}${translatedFilter}`;
-}
-
 function translateVisibleMessages() {
-  const messages = document.querySelectorAll(getMessageSelector());
+  const messages = document.querySelectorAll('.Message:not(.own):not(.deepl-translated-flag)');
   messages.forEach(processMessage);
 }
 
 function startObserver() {
   if (observer) return;
   
+  // We add characterData to watch for raw text changes
   observer = new MutationObserver((mutations) => {
     if (!settings.isEnabled || !settings.deeplKey) return;
     
@@ -80,12 +72,10 @@ function startObserver() {
       // 1. Handle brand new messages loading in
       mutation.addedNodes.forEach((node) => {
         if (node.nodeType === Node.ELEMENT_NODE) {
-          if (node.classList && node.classList.contains('Message')) {
-            // Check own filter at runtime so toggling translateOwn takes effect immediately
-            if (!settings.translateOwn && node.classList.contains('own')) return;
-            if (!node.classList.contains('deepl-translated-flag')) processMessage(node);
+          if (node.classList && node.classList.contains('Message') && !node.classList.contains('own')) {
+            processMessage(node);
           } else if (node.querySelectorAll) {
-            const innerMessages = node.querySelectorAll(getMessageSelector());
+            const innerMessages = node.querySelectorAll('.Message:not(.own):not(.deepl-translated-flag)');
             innerMessages.forEach(processMessage);
           }
         }
@@ -96,17 +86,14 @@ function startObserver() {
         let targetEl = mutation.target.nodeType === Node.ELEMENT_NODE ? mutation.target : mutation.target.parentElement;
         if (!targetEl) return;
 
-        let messageNode = targetEl.closest('.Message');
-        if (!messageNode) return;
-
-        // Respect the own-messages filter
-        if (!settings.translateOwn && messageNode.classList.contains('own')) return;
+        let messageNode = targetEl.closest('.Message:not(.own)');
         
         // If it's a message we already translated...
-        if (messageNode.classList.contains('deepl-translated-flag')) {
+        if (messageNode && messageNode.classList.contains('deepl-translated-flag')) {
           const textContentContainer = messageNode.querySelector('.text-content');
           if (textContentContainer) {
              
+             // Clone it so we can safely strip out our injected elements to check the pure text
              const clone = textContentContainer.cloneNode(true);
              
              const metaTag = clone.querySelector('.MessageMeta');
@@ -118,10 +105,13 @@ function startObserver() {
 
              const currentHTML = clone.innerHTML.trim();
 
+             // If the current text doesn't match what we originally translated, it was edited!
              if (currentHTML && currentHTML !== messageNode.dataset.deeplOriginalHtml) {
+                // Wipe the old translation from the screen
                 if (textContentContainer.querySelector('.deepl-translation')) textContentContainer.querySelector('.deepl-translation').remove();
                 if (textContentContainer.querySelector('.deepl-hr-flag')) textContentContainer.querySelector('.deepl-hr-flag').remove();
                 
+                // Unflag it and send it back to the queue
                 messageNode.classList.remove('deepl-translated-flag');
                 processMessage(messageNode);
              }
@@ -131,6 +121,7 @@ function startObserver() {
     });
   });
   
+  // Notice we now observe characterData too
   observer.observe(document.body, { childList: true, subtree: true, characterData: true });
 }
 
@@ -180,6 +171,7 @@ function processMessage(messageNode) {
       return;
   }
 
+  // Save the state of this message so the observer knows if it gets edited later
   messageNode.dataset.deeplOriginalHtml = originalHTML;
 
   if (sessionCache.has(originalHTML)) {
@@ -283,6 +275,8 @@ function appendTranslation(container, translatedHTML) {
 // --- Outgoing Translation Logic (Alt + T) ---
 
 document.addEventListener('keydown', (e) => {
+  // e.code === 'KeyT' catches the physical QWERTY 'T' key across all language layouts
+  // e.key.toLowerCase() === 't' catches the logical 't' for alternative layouts like Dvorak
   if (e.altKey && (e.code === 'KeyT' || e.key.toLowerCase() === 't')) {
     e.preventDefault(); 
     handleOutgoingTranslation();
@@ -295,9 +289,11 @@ function handleOutgoingTranslation() {
   const inputBox = document.getElementById('editable-message-text');
   if (!inputBox) return;
 
+  // Telegram uses nested spans and nodes for emojis, innerText gets the clean string
   const textToTranslate = inputBox.innerText.trim();
   if (!textToTranslate) return;
 
+  // Visual feedback while translating
   const originalOpacity = inputBox.style.opacity;
   inputBox.style.opacity = '0.5';
 
@@ -305,10 +301,10 @@ function handleOutgoingTranslation() {
     action: 'translateText',
     text: textToTranslate,
     apiKey: settings.deeplKey,
-    sourceLang: '',
+    sourceLang: '', // Auto-detect what the user typed
     targetLang: settings.outgoingTargetLang,
     formality: settings.formality,
-    context: ''
+    context: '' // No context required for the input box
   }, (response) => {
     inputBox.style.opacity = originalOpacity;
 
@@ -317,10 +313,13 @@ function handleOutgoingTranslation() {
       return;
     }
 
+    // DeepL background script sends HTML back due to tag_handling='html'
+    // We parse it into plain text to safely insert into the contenteditable box
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = response.translatedText;
     const cleanText = tempDiv.innerText;
 
+    // Focus the input box and select all current text
     inputBox.focus();
     const selection = window.getSelection();
     const range = document.createRange();
@@ -328,6 +327,9 @@ function handleOutgoingTranslation() {
     selection.removeAllRanges();
     selection.addRange(range);
 
+    // Using execCommand is officially deprecated in standard web specs, 
+    // but it remains the only reliable way to trigger React's synthetic input 
+    // events in contenteditable elements without highly brittle reverse-engineering.
     document.execCommand('insertText', false, cleanText);
   });
 }
