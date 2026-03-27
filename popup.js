@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const statusTxt = document.getElementById('status');
   const quotaDisplay = document.getElementById('quotaDisplay');
   const outgoingTargetLangSelect = document.getElementById('outgoingTargetLang');
+  const translateOwnCheckbox = document.getElementById('translateOwn');
 
   let isEnabled = false;
 
@@ -37,12 +38,13 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Load saved settings
-  chrome.storage.local.get(['deeplKey', 'sourceLang', 'targetLang', 'outgoingTargetLang', 'formality', 'isEnabled'], (data) => {
+  chrome.storage.local.get(['deeplKey', 'sourceLang', 'targetLang', 'outgoingTargetLang', 'formality', 'isEnabled', 'translateOwn'], (data) => {
     if (data.deeplKey) apiKeyInput.value = data.deeplKey;
     if (data.sourceLang) sourceLangSelect.value = data.sourceLang;
     if (data.targetLang) targetLangSelect.value = data.targetLang;
     if (data.outgoingTargetLang) outgoingTargetLangSelect.value = data.outgoingTargetLang;
     if (data.formality) formalitySelect.value = data.formality;
+    translateOwnCheckbox.checked = !!data.translateOwn;
     updateToggleButtonState(!!data.isEnabled);
     
     fetchQuota(data.deeplKey);
@@ -56,7 +58,8 @@ document.addEventListener('DOMContentLoaded', () => {
       sourceLang: sourceLangSelect.value,
       targetLang: targetLangSelect.value,
       outgoingTargetLang: outgoingTargetLangSelect.value,
-      formality: formalitySelect.value
+      formality: formalitySelect.value,
+      translateOwn: translateOwnCheckbox.checked
     }, () => {
       statusTxt.style.display = 'block';
       setTimeout(() => statusTxt.style.display = 'none', 2000);
