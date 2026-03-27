@@ -12,7 +12,7 @@ let translationQueue = [];
 let isProcessingQueue = false;
 const sessionCache = new Map();
 
-chrome.storage.local.get(['deeplKey', 'sourceLang', 'targetLang', 'formality', 'isEnabled'], (data) => {
+chrome.storage.local.get(['deeplKey', 'sourceLang', 'targetLang', 'outgoingTargetLang', 'formality', 'isEnabled'], (data) => {
   settings = { ...settings, ...data };
   handleStateChange();
 });
