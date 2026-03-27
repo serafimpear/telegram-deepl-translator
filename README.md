@@ -88,3 +88,7 @@ popup.html / .js     — Settings UI and quota display
 - The session cache is tab-scoped and cleared on page reload
 - `document.execCommand('insertText')` is used for outgoing translation injection — this is deprecated in web standards but remains the only reliable method for triggering React's synthetic events in `contenteditable` elements
 - The extension requests no special permissions beyond `storage` and access to `web.telegram.org` and `deepl.com`
+
+## Acknowledgment
+
+Parts of this project were developed with the assistance of generative AI tools.
