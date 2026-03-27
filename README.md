@@ -1,10 +1,8 @@
-# 🌐 Telegram DeepL Translator
+# Telegram DeepL Translator
 
-A lightweight Chrome/Brave extension that automatically translates Telegram Web messages in real-time using the [DeepL API](https://www.deepl.com/pro-api). No bots, no server-side setup — everything runs directly in your browser.
+A lightweight Chrome/Brave extension that automatically translates Telegram Web messages in real-time using the [DeepL API](https://www.deepl.com/pro-api).
 
----
-
-## ✨ Features
+## Features
 
 - **Auto-translate incoming messages** — translates all non-own messages as they appear, with translations rendered inline below the original text
 - **Outgoing translation** — press `Alt + T` in the message input box to translate your draft before sending
@@ -17,7 +15,7 @@ A lightweight Chrome/Brave extension that automatically translates Telegram Web 
 
 ---
 
-## 📦 Installation
+## Installation
 
 > **Requirements:** Chrome or Brave browser
 
@@ -28,7 +26,7 @@ A lightweight Chrome/Brave extension that automatically translates Telegram Web 
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
 Click the extension icon to open the popup and configure the following:
 
@@ -44,7 +42,7 @@ Settings are saved automatically via `chrome.storage.local` and take effect imme
 
 ---
 
-## 🚀 Usage
+## Usage
 
 ### Incoming messages
 1. Enter your DeepL API key and configure your target language
@@ -58,7 +56,7 @@ Settings are saved automatically via `chrome.storage.local` and take effect imme
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 manifest.json        — MV3 extension manifest
@@ -76,7 +74,7 @@ popup.html / .js     — Settings UI and quota display
 
 ---
 
-## 🔑 Getting a DeepL API Key
+## Getting a DeepL API Key
 
 1. Sign up at [deepl.com/pro-api](https://www.deepl.com/pro-api)
 2. The **Free tier** includes 500,000 characters/month — free keys end in `:fx`
@@ -84,7 +82,7 @@ popup.html / .js     — Settings UI and quota display
 
 ---
 
-## ⚠️ Notes & Limitations
+## Notes & Limitations
 
 - Works with **Telegram Web** (`web.telegram.org`) only — not the desktop or mobile apps
 - The session cache is tab-scoped and cleared on page reload
