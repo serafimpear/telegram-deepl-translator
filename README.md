@@ -34,7 +34,7 @@ Click the extension icon to open the popup and configure the following:
 
 | Setting | Description |
 |---|---|
-| **DeepL API Key** | Your Free (`:fx`) or Pro API key from [deepl.com](https://www.deepl.com/pro-api) |
+| **DeepL API Key** | Your Free (`:fx`) or Pro API key from [deepl.com](https://support.deepl.com/hc/en-us/articles/360020695820-API-key-for-DeepL-API) |
 | **Source Language** | Language to translate *from* (or Auto Detect) |
 | **Target Language** | Language to translate incoming messages *into* |
 | **Outgoing Target** | Language used when translating your outgoing draft via `Alt + T` |
